@@ -250,9 +250,10 @@ void RemoveTransferableShaderCache(u64 program_id, GameListRemoveTarget target) 
         static constexpr std::array<std::string_view, 1> gl{"opengl.bin"};
         // Keep the legacy name so this action also cleans caches made before cache versioning.
         // The current names must match PipelineCache::LoadDiskResources.
-        static constexpr std::array<std::string_view, 4> vk{
-            "vulkan.mythos-v4.bin", "vulkan_used.mythos-v4.bin", "vulkan.mythos.bin",
-            "vulkan_used.mythos.bin"};
+        static constexpr std::array<std::string_view, 6> vk{
+            "vulkan.mythos-v5.bin", "vulkan_used.mythos-v5.bin",
+            "vulkan.mythos-v4.bin", "vulkan_used.mythos-v4.bin",
+            "vulkan.mythos.bin", "vulkan_used.mythos.bin"};
         switch (target) {
         case GameListRemoveTarget::GlShaderCache:
             return gl;
@@ -288,8 +289,9 @@ void RemoveTransferableShaderCache(u64 program_id, GameListRemoveTarget target) 
 }
 
 void RemoveVulkanDriverPipelineCache(u64 program_id) {
-    static constexpr std::array<std::string_view, 2> target_file_names{
-        "vulkan_pipelines.mythos-v4.bin", "vulkan_pipelines.mythos.bin"};
+    static constexpr std::array<std::string_view, 3> target_file_names{
+        "vulkan_pipelines.mythos-v5.bin", "vulkan_pipelines.mythos-v4.bin",
+        "vulkan_pipelines.mythos.bin"};
 
     const auto shader_cache_dir = Common::FS::GetEdenPath(Common::FS::EdenPath::ShaderDir);
     const auto shader_cache_folder_path = shader_cache_dir / fmt::format("{:016x}", program_id);

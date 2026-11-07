@@ -73,7 +73,7 @@ using VideoCommon::GenericEnvironment;
 using VideoCommon::GraphicsEnvironment;
 using VideoCommon::ShaderSnapshotFailure;
 
-constexpr u32 CACHE_VERSION = 0x4e4f0009; // Restore the title-scoped OoT fog/exposure correction.
+constexpr u32 CACHE_VERSION = 0x4e4f000a; // Restore OoT native shader lowering compatibility.
 constexpr size_t VULKAN_CACHE_FLUSH_PIPELINES = 128;
 constexpr size_t VULKAN_CACHE_FLUSH_MIN_SECONDS = 30;
 constexpr std::array<char, 8> VULKAN_CACHE_MAGIC_NUMBER{'y', 'u', 'z', 'u', 'v', 'k', 'c', 'h'};
@@ -499,11 +499,15 @@ PipelineCache::PipelineCache(Tegra::MaxwellDeviceMemoryManager& device_memory_,
     translation_workers(num_translation_threads, "VkPipelineTranslator", {},
                         Common::ThreadPlacement::Background) {
     VideoCommon::StallDiagnostics::Start();
-    const char* tensor_mode = std::getenv("EDEN_NX2_TENSOR");
-    const bool tensor_enabled = tensor_mode && std::string_view{tensor_mode} == "fast" &&
+    const char* tensor_mode_env = std::getenv("EDEN_NX2_TENSOR");
+    const std::string_view tensor_mode = tensor_mode_env ? tensor_mode_env : "";
+    const bool tensor_enabled = tensor_mode == "fast" &&
                                 device.IsExtCooperativeMatrixSupported();
-    const bool software_tensor_enabled = tensor_mode &&
-        std::string_view{tensor_mode} == "software" && device.IsSoftwareTensorSupported();
+    // Portable HMMA is the safe default on hardware without the native extension. Before this,
+    // OoT's upscaler compute programs were rejected unless the user set an undocumented variable,
+    // leaving the renderer to present a stale (often black) buffer.
+    const bool software_tensor_enabled =
+        (tensor_mode.empty() || tensor_mode == "software") && device.IsSoftwareTensorSupported();
     SetCooperativeMatrixSupported(tensor_enabled || software_tensor_enabled);
     if (software_tensor_enabled) {
         LOG_INFO(Render_Vulkan, "Native HMMA uses 32-lane software matrix arithmetic");
@@ -907,10 +911,10 @@ void PipelineCache::LoadDiskResources(u64 title_id, std::stop_token stop_loading
     // every run with no pipelines (RX 6600 log: "Deleting old pipeline cache", ~600 pipelines
     // built in game). Own names let the caches coexist; files this version wrote under the old
     // names move over once.
-    // Serialized environments contain lowered Maxwell code. The corrected Yoshi carry/gather
-    // lowering must not reuse an older translation; leave V3's cache intact for comparisons.
+    // Serialized environments contain lowered Maxwell code. OoT's restored native lowering must
+    // not reuse V4 translations that rejected its world pipelines; keep older caches for rollback.
     const auto cache_path = [&](std::string_view stem) {
-        return base_dir / fmt::format("{}.mythos-v4.bin", stem);
+        return base_dir / fmt::format("{}.mythos-v5.bin", stem);
     };
     if (!Common::FS::Exists(cache_path("vulkan")) &&
         IsOwnPipelineCache(base_dir / "vulkan.bin", CACHE_VERSION)) {
