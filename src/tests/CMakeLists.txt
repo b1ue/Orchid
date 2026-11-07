@@ -45,6 +45,7 @@ add_executable(tests
     core/vfs_vector.cpp
     core/internal_network/network.cpp
     video_core/aftermath_dump.cpp
+    video_core/oot_visual_workaround.cpp
     video_core/stall_diagnostics.cpp
     video_core/storage_buffer_pointer_tracking.cpp
     video_core/storage_buffer_control_flow.cpp
