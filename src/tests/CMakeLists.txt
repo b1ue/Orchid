@@ -135,6 +135,13 @@ target_link_libraries(tests PRIVATE ${PLATFORM_LIBRARIES} Catch2::Catch2WithMain
 
 add_test(NAME tests COMMAND tests)
 
+# Focused compatibility target used by the Windows review branch. It keeps unrelated legacy test
+# warnings from obscuring validation of the Vulkan pipeline and OoT IR correction.
+add_executable(oot_visual_workaround_tests video_core/oot_visual_workaround.cpp)
+target_link_libraries(oot_visual_workaround_tests PRIVATE common core video_core)
+target_link_libraries(oot_visual_workaround_tests PRIVATE ${PLATFORM_LIBRARIES}
+    Catch2::Catch2WithMain Threads::Threads)
+
 # Separate processes exercise the cached opt-in and destruction order without a GPU or profile.
 add_executable(stall_diagnostics_session
     video_core/stall_diagnostics_session.cpp

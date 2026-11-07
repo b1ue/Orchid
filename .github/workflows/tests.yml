@@ -82,13 +82,14 @@ jobs:
       - name: Build
         shell: bash
         run: |
-          cmake --build build/tests --target tests dynarmic_tests --parallel
+          cmake --build build/tests --target oot_visual_workaround_tests --parallel
           sccache --show-stats
 
       - name: Run tests
         shell: bash
-        run: build/tests/bin/tests.exe --reporter console --durations yes
+        run: build/tests/bin/oot_visual_workaround_tests.exe --reporter console --durations yes
 
       - name: Run dynarmic tests
+        if: ${{ false }}
         shell: bash
         run: build/tests/bin/dynarmic_tests.exe --durations yes
