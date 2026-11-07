@@ -12,6 +12,10 @@
 #include "qt_common/config/uisettings.h"
 #include "qt_common/qt_common.h"
 
+#include <array>
+#include <span>
+#include <string_view>
+
 #include <QDesktopServices>
 #include <QStandardPaths>
 #include <QUrl>
@@ -240,26 +244,41 @@ void RemoveAddOnContent(u64 program_id, InstalledEntryType type) {
 // Global Content //
 
 void RemoveTransferableShaderCache(u64 program_id, GameListRemoveTarget target) {
-    const auto target_file_name = [target] {
-        switch (target) {
-        case GameListRemoveTarget::GlShaderCache:
-            return "opengl.bin";
-        case GameListRemoveTarget::VkShaderCache:
-            return "vulkan.mythos.bin"; // own name, see vk_pipeline_cache.cpp
-        default:
-            return "";
-        }
-    }();
     const auto shader_cache_dir = Common::FS::GetEdenPath(Common::FS::EdenPath::ShaderDir);
     const auto shader_cache_folder_path = shader_cache_dir / fmt::format("{:016x}", program_id);
-    const auto target_file = shader_cache_folder_path / target_file_name;
+    const auto target_file_names = [target] -> std::span<const std::string_view> {
+        static constexpr std::array<std::string_view, 1> gl{"opengl.bin"};
+        // Keep the legacy name so this action also cleans caches made before cache versioning.
+        // The current names must match PipelineCache::LoadDiskResources.
+        static constexpr std::array<std::string_view, 4> vk{
+            "vulkan.mythos-v4.bin", "vulkan_used.mythos-v4.bin", "vulkan.mythos.bin",
+            "vulkan_used.mythos.bin"};
+        switch (target) {
+        case GameListRemoveTarget::GlShaderCache:
+            return gl;
+        case GameListRemoveTarget::VkShaderCache:
+            return vk;
+        default:
+            return {};
+        }
+    }();
 
-    if (!Common::FS::Exists(target_file)) {
+    bool found{};
+    bool removed{true};
+    for (const std::string_view target_file_name : target_file_names) {
+        const auto target_file = shader_cache_folder_path / target_file_name;
+        if (!Common::FS::Exists(target_file)) {
+            continue;
+        }
+        found = true;
+        removed &= Common::FS::RemoveFile(target_file);
+    }
+    if (!found) {
         QtCommon::Frontend::Warning(tr("Error Removing Transferable Shader Cache"),
                                     tr("A shader cache for this title does not exist."));
         return;
     }
-    if (Common::FS::RemoveFile(target_file)) {
+    if (removed) {
         QtCommon::Frontend::Information(tr("Successfully Removed"),
                                         tr("Successfully removed the transferable shader cache."));
     } else {
@@ -269,18 +288,18 @@ void RemoveTransferableShaderCache(u64 program_id, GameListRemoveTarget target) 
 }
 
 void RemoveVulkanDriverPipelineCache(u64 program_id) {
-    static constexpr std::string_view target_file_name = "vulkan_pipelines.mythos.bin";
+    static constexpr std::array<std::string_view, 2> target_file_names{
+        "vulkan_pipelines.mythos-v4.bin", "vulkan_pipelines.mythos.bin"};
 
     const auto shader_cache_dir = Common::FS::GetEdenPath(Common::FS::EdenPath::ShaderDir);
     const auto shader_cache_folder_path = shader_cache_dir / fmt::format("{:016x}", program_id);
-    const auto target_file = shader_cache_folder_path / target_file_name;
-
-    if (!Common::FS::Exists(target_file)) {
-        return;
-    }
-    if (!Common::FS::RemoveFile(target_file)) {
-        QtCommon::Frontend::Warning(tr("Error Removing Vulkan Driver Pipeline Cache"),
-                                    tr("Failed to remove the driver pipeline cache."));
+    for (const std::string_view target_file_name : target_file_names) {
+        const auto target_file = shader_cache_folder_path / target_file_name;
+        if (Common::FS::Exists(target_file) && !Common::FS::RemoveFile(target_file)) {
+            QtCommon::Frontend::Warning(tr("Error Removing Vulkan Driver Pipeline Cache"),
+                                        tr("Failed to remove the driver pipeline cache."));
+            return;
+        }
     }
 }
 
