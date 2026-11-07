@@ -4,6 +4,8 @@ name: tests
 # Pushes and pull requests never start a build.
 on:
   workflow_dispatch:
+  push:
+    branches: [codex/oot-windows-compat]
 
 permissions:
   contents: read
